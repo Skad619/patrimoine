@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patrimoine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@300;400;500&display=swap">
+<style>
+:root{--accent:#00e5ff;--accent-rgb:0,229,255;--warn:#fb923c}
+*{box-sizing:border-box}
+body{margin:0;background:#050507;color:#f5f5f7;font-family:'Geist',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.orb{position:fixed;border-radius:50%;pointer-events:none;animation:float 22s ease-in-out infinite}
+.o1{top:0;left:-160px;width:500px;height:500px;opacity:.2;background:radial-gradient(circle,rgba(var(--accent-rgb),.55),transparent 70%)}
+.o2{bottom:0;right:0;width:600px;height:600px;opacity:.15;background:radial-gradient(circle,rgba(120,80,255,.5),transparent 70%);animation-direction:reverse}
+@keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-50px) scale(1.1)}66%{transform:translate(-20px,20px) scale(.95)}}
+@media(prefers-reduced-motion:reduce){.orb{animation:none}}
+.wrap{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:32px 32px 64px}
+.num{font-family:'Geist Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.glass{background:rgba(255,255,255,.025);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,.06);border-radius:1rem;padding:1.1rem}
+header{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;margin-bottom:28px}
+.date{margin:0 0 4px;color:rgba(255,255,255,.4);font-size:13px;text-transform:capitalize}
+h1{margin:0;font-size:38px;font-weight:300;letter-spacing:-.02em}
+.sub{margin:8px 0 0;color:rgba(255,255,255,.45);font-size:14px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:12px;font-size:13px;font-weight:500;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.75);transition:all .15s}
+.btn:hover{color:#fff;background:rgba(255,255,255,.08)}
+.btn-accent{background:linear-gradient(135deg,rgba(var(--accent-rgb),.22),rgba(var(--accent-rgb),.1));border-color:rgba(var(--accent-rgb),.4);color:var(--accent)}
+.btn-accent:hover{background:rgba(var(--accent-rgb),.18);color:var(--accent)}
+.month{display:flex;align-items:center;gap:4px}
+.month b{min-width:130px;text-align:center;font-weight:500;font-size:14px;text-transform:capitalize}
+.month button{width:36px;height:36px;border-radius:10px;font-size:20px;color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.kpi{padding:14px 16px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
+.kpi.main{border-color:rgba(var(--accent-rgb),.25);background:rgba(var(--accent-rgb),.06)}
+.kpi span{display:block;font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px}
+.kpi strong{font-size:22px;font-weight:300}
+.up{color:var(--accent)}.down{color:var(--warn)}
+.grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px}
+h2{margin:0 0 4px;font-size:15px;font-weight:500}
+.hint{margin:0 0 14px;color:rgba(255,255,255,.4);font-size:12px}
+.legend{display:flex;gap:16px;font-size:12px;color:rgba(255,255,255,.5);margin-bottom:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.chart{width:100%;height:auto;display:block}
+ul{list-style:none;margin:0;padding:0;max-height:340px;overflow:auto}
+li{display:grid;grid-template-columns:56px 1fr auto;gap:8px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px}
+li .d{color:rgba(255,255,255,.4);font-size:13px}
+li .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empty{padding:36px 8px;text-align:center;color:rgba(255,255,255,.45)}
+.empty p{margin:0 0 16px}
+#status{min-height:20px;margin:14px 0 0;color:rgba(255,255,255,.45);font-size:13px}
+.hide .num,.hide .chart{filter:blur(8px)}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.wrap{padding:20px 16px 48px}h1{font-size:30px}}
+.wrap{padding-bottom:110px}
+.dc{display:contents}.dc[hidden]{display:none}
+.tabs{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:5;display:flex;gap:4px;padding:5px;border-radius:999px;background:rgba(10,10,14,.7);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.1)}
+.tabs button{padding:9px 22px;border-radius:999px;font-size:13px;color:rgba(255,255,255,.55)}
+.tabs button[aria-current=page]{background:rgba(var(--accent-rgb),.15);color:var(--accent)}
+.col{display:grid;gap:16px;align-content:start}
+.stack{display:flex;height:10px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.06);margin:8px 0 12px}
+.arow{display:grid;grid-template-columns:12px 1fr auto 52px;gap:10px;align-items:center;padding:6px 0;font-size:14px}
+.arow i{width:10px;height:10px;border-radius:3px}.arow small{color:rgba(255,255,255,.4);text-align:right}
+.inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.inputs label{font-size:12px;color:rgba(255,255,255,.45)}
+.fld{width:100%;margin-top:4px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
+.bar{height:6px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.goal{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px}
+.goal div{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.goal button{color:rgba(255,255,255,.4);font-size:18px}
+.goalform{display:grid;grid-template-columns:1fr 110px auto;gap:8px;margin-top:12px}
+.pact{display:flex;gap:8px;margin-top:16px}
+.inputs{display:block}
+.irow{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.irow b{font-weight:500;font-size:14px}
+.two2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.arow{grid-template-columns:12px 1fr auto 70px}
+</style>
+</head>
+<body>
+<div class="orb o1"></div><div class="orb o2"></div>
+<div class="wrap">
+  <header>
+    <div>
+      <p class="date" id="date"></p>
+      <h1 id="hello"></h1>
+      <p class="sub">Ton budget au quotidien, mois après mois.</p>
+    </div>
+    <div class="actions">
+      <div class="month"><button id="prev" aria-label="Mois précédent">‹</button><b id="month"></b><button id="next" aria-label="Mois suivant">›</button></div>
+      <span class="dc" id="budget-actions"><label class="btn btn-accent" for="file">Importer mes données</label>
+      <input id="file" type="file" accept="application/json,.json" hidden></span>
+      <button class="btn" id="hide">Masquer les montants</button>
+    </div>
+  </header>
+
+  <div id="v-budget">
+  <section class="kpis">
+    <div class="kpi main"><span>Il te reste</span><strong class="num" id="k-rest"></strong></div>
+    <div class="kpi"><span>Entrées</span><strong class="num" id="k-inc"></strong></div>
+    <div class="kpi"><span>Dépensé</span><strong class="num" id="k-exp"></strong></div>
+    <div class="kpi"><span>Taux d'épargne</span><strong class="num" id="k-rate"></strong></div>
+  </section>
+
+  <div class="grid">
+    <section class="glass">
+      <h2>Évolution sur 12 mois</h2>
+      <p class="hint">Entrées et dépenses de chaque mois, jusqu'au mois affiché.</p>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Entrées</span><span><i style="background:var(--warn)"></i>Dépensé</span></div>
+      <div id="chart"></div>
+    </section>
+    <section class="glass">
+      <h2>Opérations du mois</h2>
+      <p class="hint" id="count"></p>
+      <ul id="list"></ul>
+      <div class="empty" id="empty" hidden>
+        <p>Aucune opération pour ce mois.<br>Exporte ton fichier depuis l'iPhone, puis importe-le ici.</p>
+        <label class="btn btn-accent" for="file">Importer mes données</label>
+      </div>
+    </section>
+  </div>
+  <p id="status" role="status"></p>
+  <button class="btn" id="clear">Effacer les données de ce Mac</button>
+  </div>
+
+  <div id="v-pat" hidden>
+    <section class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+      <div class="kpi main"><span>Patrimoine total</span><strong class="num" id="p-total"></strong></div>
+      <div class="kpi"><span>Variation du mois (versements inclus)</span><strong class="num" id="p-var"></strong></div>
+      <div class="kpi"><span>Gain / perte sur investi</span><strong class="num" id="p-gain"></strong></div>
+    </section>
+    <div class="grid">
+      <div class="col">
+        <section class="glass"><h2>Évolution sur 12 mois</h2><p class="hint">Total de tes comptes à la fin de chaque mois.</p><div id="p-chart"></div></section>
+        <section class="glass"><h2>Objectifs</h2><p class="hint">La barre compare ton patrimoine total au montant visé.</p><div id="goals"></div>
+          <div class="goalform"><input class="fld" id="g-name" placeholder="Nom" aria-label="Nom de l'objectif"><input class="fld" id="g-target" inputmode="decimal" placeholder="Montant" aria-label="Montant visé"><button class="btn btn-accent" id="g-add">Ajouter</button></div></section>
+      </div>
+      <div class="col">
+        <section class="glass"><h2>Répartition</h2><div class="stack" id="stack"></div><div id="alist"></div></section>
+        <section class="glass"><h2>Performance</h2><p class="hint">Valeur actuelle moins le total que tu as investi.</p><div id="perf"></div></section>
+        <section class="glass"><h2>Soldes de <span id="p-month"></span></h2><p class="hint">Une fois par mois : la valeur de chaque compte et, pour les placements, le total que tu y as versé depuis le début.</p><div class="inputs" id="inputs"></div><button class="btn btn-accent" id="p-save" style="margin-top:12px">Enregistrer</button></section>
+      </div>
+    </div>
+    <p id="pstatus" class="sub" role="status"></p>
+    <div class="pact"><button class="btn" id="p-export">Exporter</button><label class="btn" for="p-file">Importer</label><input id="p-file" type="file" accept="application/json,.json" hidden></div>
+  </div>
+  <nav class="tabs" aria-label="Navigation"><button id="t-b" aria-current="page">Budget</button><button id="t-p">Patrimoine</button></nav>
+</div>
+
+<script>
+const NAME='Samuel';
+const KEY='dashboard.tx.v1';
+const $=s=>document.querySelector(s);
+const eur=new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'});
+const eur0=new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0});
+const pad=n=>String(n).padStart(2,'0');
+const ymOf=d=>d.getFullYear()+'-'+pad(d.getMonth()+1);
+const shiftYm=(ym,k)=>{const [y,m]=ym.split('-').map(Number);return ymOf(new Date(y,m-1+k,1))};
+const label=(ym,o)=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('fr-FR',o)};
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));return Array.isArray(d)?d:[]}catch{return[]}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(tx))}catch{msg('Enregistrement impossible : le stockage du navigateur est bloqué.')}}
+function msg(t){$('#status').textContent=t;$('#pstatus').textContent=t}
+let tx=load();
+let ym=tx.length?tx.map(t=>t.date.slice(0,7)).sort().pop():ymOf(new Date());
+
+function totals(m){
+  let inc=0,exp=0;
+  for(const t of tx){if(t.date.startsWith(m)){if(t.type==='income')inc+=t.amount;else exp+=t.amount}}
+  return {inc,exp};
+}
+
+function renderChart(){
+  const months=Array.from({length:12},(_,i)=>shiftYm(ym,i-11));
+  const data=months.map(m=>({m,...totals(m)}));
+  const max=Math.max(100,...data.flatMap(d=>[d.inc,d.exp]));
+  const nice=Math.ceil(max/Math.pow(10,Math.floor(Math.log10(max))))*Math.pow(10,Math.floor(Math.log10(max)));
+  const W=760,H=270,L=56,R=12,T=12,B=30,pw=W-L-R,ph=H-T-B,step=pw/12;
+  const y=v=>T+ph-(v/nice)*ph;
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Entrées et dépenses par mois">`;
+  for(let i=0;i<=4;i++){
+    const v=nice*i/4,yy=y(v);
+    s+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="rgba(255,255,255,.05)"/><text x="${L-8}" y="${yy+4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.35)">${eur0.format(v)}</text>`;
+  }
+  data.forEach((d,i)=>{
+    const cx=L+step*i+step/2,bw=step*.46;
+    s+=`<rect x="${cx-bw/2}" y="${y(d.exp)}" width="${bw}" height="${T+ph-y(d.exp)}" rx="4" fill="var(--warn)" opacity=".55"><title>${label(d.m,{month:'long',year:'numeric'})} : dépensé ${eur.format(d.exp)}</title></rect>`;
+    s+=`<text x="${cx}" y="${H-10}" text-anchor="middle" font-size="10" fill="${d.m===ym?'var(--accent)':'rgba(255,255,255,.35)'}">${label(d.m,{month:'short'})}</text>`;
+  });
+  const pts=data.map((d,i)=>[L+step*i+step/2,y(d.inc)]);
+  s+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
+  data.forEach((d,i)=>{s+=`<circle cx="${pts[i][0]}" cy="${pts[i][1]}" r="${d.m===ym?5:3}" fill="var(--accent)"><title>${label(d.m,{month:'long',year:'numeric'})} : entrées ${eur.format(d.inc)}</title></circle>`});
+  $('#chart').innerHTML=s+'</svg>';
+}
+
+function render(){
+  const now=new Date();
+  $('#date').textContent=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const h=now.getHours();
+  $('#hello').textContent=(h<12?'Bonjour, ':h<18?'Bon après-midi, ':'Bonsoir, ')+NAME;
+  $('#month').textContent=label(ym,{month:'long',year:'numeric'});
+  const {inc,exp}=totals(ym),rest=inc-exp;
+  const kr=$('#k-rest');kr.textContent=eur.format(rest);kr.className='num '+(rest<0?'down':'up');
+  $('#k-inc').textContent=eur.format(inc);
+  $('#k-exp').textContent=eur.format(exp);
+  const kt=$('#k-rate');
+  if(inc>0){const r=rest/inc*100;kt.textContent=Math.round(r)+' %';kt.className='num '+(r>=0?'up':'down')}
+  else{kt.textContent='–';kt.className='num'}
+  const rows=tx.filter(t=>t.date.startsWith(ym)).sort((a,b)=>b.date.localeCompare(a.date));
+  $('#count').textContent=rows.length?rows.length+' opération'+(rows.length>1?'s':''):'';
+  $('#empty').hidden=rows.length>0;
+  const ul=$('#list');ul.replaceChildren();
+  for(const t of rows){
+    const li=document.createElement('li');
+    const d=document.createElement('span');d.className='d';
+    d.textContent=new Date(t.date+'T00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+    const n=document.createElement('span');n.className='n';
+    n.textContent=t.note||(t.type==='income'?'Entrée':'Dépense');
+    const a=document.createElement('span');a.className='num '+(t.type==='income'?'up':'');
+    a.textContent=(t.type==='income'?'+':'−')+eur.format(t.amount);
+    li.append(d,n,a);ul.append(li);
+  }
+  renderChart();renderPat();
+}
+
+$('#prev').onclick=()=>{ym=shiftYm(ym,-1);render()};
+$('#next').onclick=()=>{ym=shiftYm(ym,1);render()};
+$('#hide').onclick=()=>{
+  const on=document.body.classList.toggle('hide');
+  $('#hide').textContent=on?'Afficher les montants':'Masquer les montants';
+};
+
+const valid=t=>t&&typeof t.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)&&(t.type==='expense'||t.type==='income')&&Number.isFinite(t.amount)&&t.amount>0;
+$('#file').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{
+    const p=JSON.parse(await f.text());
+    if(p.schemaVersion!==1||!Array.isArray(p.transactions))throw new Error('format');
+    const known=new Set(tx.map(t=>t.id));
+    const add=p.transactions.filter(t=>valid(t)&&!known.has(t.id)).map(t=>({id:t.id,date:t.date,type:t.type,amount:t.amount,note:String(t.note||''),category:t.category??null}));
+    tx=tx.concat(add);persist();
+    if(add.length)ym=tx.map(t=>t.date.slice(0,7)).sort().pop();
+    render();msg(add.length+' opération(s) ajoutée(s).');
+  }catch{msg('Fichier non reconnu : choisis un export de l\'appli iPhone.')}
+};
+$('#clear').onclick=()=>{
+  if(confirm('Effacer toutes les données de ce Mac ? Tes données sur l\'iPhone ne sont pas touchées.')){tx=[];persist();render();msg('Données effacées.')}
+};
+
+const ACC=[{id:'epargne',name:'Épargne',c:'#00e5ff'},{id:'pea',name:'PEA',c:'#a78bfa',inv:1},{id:'peg',name:'PEG',c:'#fbbf24',inv:1},{id:'crypto',name:'Crypto',c:'#34d399',inv:1}];
+const PKEY='dashboard.pat.v1';
+const uid=()=>crypto.randomUUID?crypto.randomUUID():'g-'+Date.now()+Math.random().toString(16).slice(2);
+const num=v=>{const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return Number.isFinite(n)&&n>=0?Math.round(n*100)/100:0};
+function loadP(){try{const d=JSON.parse(localStorage.getItem(PKEY));return d&&d.snaps?{snaps:d.snaps,goals:d.goals||[]}:{snaps:{},goals:[]}}catch{return{snaps:{},goals:[]}}}
+let pat=loadP();
+function persistP(){try{localStorage.setItem(PKEY,JSON.stringify(pat))}catch{msg('Enregistrement impossible : le stockage du navigateur est bloqué.')}}
+const sumS=s=>s?ACC.reduce((a,c)=>a+(s[c.id]||0),0):0;
+const snapAt=m=>{const k=Object.keys(pat.snaps).filter(x=>x<=m).sort().pop();return k?pat.snaps[k]:null};
+
+function pChart(){
+  const ms=Array.from({length:12},(_,i)=>shiftYm(ym,i-11));
+  const v=ms.map(m=>sumS(snapAt(m)));
+  const max=Math.max(100,...v),mag=Math.pow(10,Math.floor(Math.log10(max))),nice=Math.ceil(max/mag)*mag;
+  const W=760,H=270,L=62,R=14,T=12,B=30,pw=W-L-R,ph=H-T-B,st=pw/11,y=n=>T+ph-n/nice*ph;
+  let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution du patrimoine">`;
+  for(let i=0;i<=4;i++){const yy=y(nice*i/4);s+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="rgba(255,255,255,.05)"/><text x="${L-8}" y="${yy+4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.35)">${eur0.format(nice*i/4)}</text>`}
+  const pts=v.map((n,i)=>[L+st*i,y(n)]);
+  s+=`<path d="M${pts.map(p=>p.join(',')).join(' L')} L${pts[11][0]},${T+ph} L${pts[0][0]},${T+ph}Z" fill="rgba(0,229,255,.12)"/>`;
+  s+=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
+  ms.forEach((m,i)=>{
+    s+=`<circle cx="${pts[i][0]}" cy="${pts[i][1]}" r="${m===ym?5:3}" fill="var(--accent)"><title>${label(m,{month:'long',year:'numeric'})} : ${eur.format(v[i])}</title></circle>`;
+    s+=`<text x="${pts[i][0]}" y="${H-10}" text-anchor="middle" font-size="10" fill="${m===ym?'var(--accent)':'rgba(255,255,255,.35)'}">${label(m,{month:'short'})}</text>`;
+  });
+  $('#p-chart').innerHTML=s+'</svg>';
+}
+
+function renderPat(){
+  const s=snapAt(ym),tot=sumS(s);
+  $('#p-total').textContent=eur0.format(tot);$('#p-total').className='num up';
+  const pv=$('#p-var'),hasPrev=Object.keys(pat.snaps).some(k=>k<ym);
+  if(hasPrev){const d=tot-sumS(snapAt(shiftYm(ym,-1))),pc=tot-d>0?d/(tot-d)*100:0;
+    pv.textContent=(d>=0?'+':'−')+eur0.format(Math.abs(d))+(tot-d>0?' ('+(d>=0?'+':'−')+Math.abs(pc).toFixed(1).replace('.',',')+' %)':'');pv.className='num '+(d>=0?'up':'down')}
+  else{pv.textContent='–';pv.className='num'}
+  $('#p-month').textContent=label(ym,{month:'long',year:'numeric'});
+  $('#stack').innerHTML=tot>0?ACC.map(c=>`<div style="width:${(s[c.id]||0)/tot*100}%;background:${c.c}"></div>`).join(''):'';
+  $('#alist').innerHTML=ACC.map(c=>{const n=s?s[c.id]||0:0;return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}</span><span class="num">${eur0.format(n)}</span><small class="num">${tot>0?Math.round(n/tot*100):0} %</small></div>`}).join('');
+  const box=$('#inputs');
+  const fmt=n=>n?String(n).replace('.',','):'';
+  if(!box.dataset.m||box.dataset.m!==ym){box.dataset.m=ym;box.innerHTML=ACC.map(c=>`<div class="irow"><b>${c.name}</b><div class="two2"><label>Valeur<input class="fld num" id="in-${c.id}" inputmode="decimal" placeholder="0" value="${fmt(s&&s[c.id])}"></label>${c.inv?`<label>Investi<input class="fld num" id="iv-${c.id}" inputmode="decimal" placeholder="0" value="${fmt(s&&s.inv&&s.inv[c.id])}"></label>`:''}</div></div>`).join('')}
+  const gl=$('#goals');gl.replaceChildren();
+  if(!pat.goals.length){gl.innerHTML='<p class="hint" style="margin:8px 0 0">Aucun objectif pour l\'instant.</p>'}
+  for(const g of pat.goals){
+    const pc=Math.min(100,tot/g.target*100),d=document.createElement('div');d.className='goal';
+    const top=document.createElement('div'),nm=document.createElement('span'),am=document.createElement('span'),x=document.createElement('button');
+    nm.textContent=g.name;am.className='num';am.textContent=eur0.format(g.target)+' · '+Math.floor(pc)+' %';x.textContent='×';x.setAttribute('aria-label','Supprimer l\'objectif');
+    x.onclick=()=>{pat.goals=pat.goals.filter(o=>o.id!==g.id);persistP();renderPat()};
+    const bar=document.createElement('div');bar.className='bar';bar.innerHTML=`<i style="width:${pc}%"></i>`;
+    const r=document.createElement('div');r.append(am,x);top.append(nm,r);top.style.display='flex';d.append(top,bar);gl.append(d);
+  }
+  pChart();
+  let tg=0,ti=0,any=false;
+  $('#perf').innerHTML=ACC.filter(c=>c.inv).map(c=>{
+    const v=s?s[c.id]||0:0,i=s&&s.inv?s.inv[c.id]||0:0;
+    if(!(i>0))return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}</span><small style="grid-column:3/5">Investi non saisi</small></div>`;
+    const g=v-i;tg+=g;ti+=i;any=true;const k=g>=0?'up':'down',sg=g>=0?'+':'−';
+    return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}<small class="num" style="display:block;text-align:left">${eur0.format(v)} / ${eur0.format(i)}</small></span><span class="num ${k}">${sg}${eur0.format(Math.abs(g))}</span><small class="num ${k}">${sg}${Math.abs(g/i*100).toFixed(1).replace('.',',')} %</small></div>`}).join('');
+  const pg=$('#p-gain');
+  if(any){const k=tg>=0?'up':'down',sg=tg>=0?'+':'−';pg.textContent=sg+eur0.format(Math.abs(tg))+' ('+sg+Math.abs(tg/ti*100).toFixed(1).replace('.',',')+' %)';pg.className='num '+k}
+  else{pg.textContent='–';pg.className='num'}
+}
+$('#p-save').onclick=()=>{
+  const snap={inv:{}};ACC.forEach(c=>{snap[c.id]=num($('#in-'+c.id).value);if(c.inv)snap.inv[c.id]=num($('#iv-'+c.id).value)});
+  pat.snaps[ym]=snap;persistP();$('#inputs').dataset.m='';renderPat();msg('Soldes enregistrés.');
+};
+$('#g-add').onclick=()=>{
+  const name=$('#g-name').value.trim(),target=num($('#g-target').value);
+  if(!name||target<=0){msg('Donne un nom et un montant supérieur à 0.');return}
+  pat.goals.push({id:uid(),name,target});persistP();$('#g-name').value='';$('#g-target').value='';renderPat();msg('');
+};
+$('#p-export').onclick=()=>{
+  const f=new File([JSON.stringify({schemaVersion:1,kind:'patrimoine',snapshots:pat.snaps,goals:pat.goals},null,2)],'patrimoine-'+ymOf(new Date())+'.json',{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);msg('Fichier téléchargé.');
+};
+$('#p-file').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{
+    const p=JSON.parse(await f.text());
+    if(p.schemaVersion!==1||p.kind!=='patrimoine'||typeof p.snapshots!=='object')throw new Error('format');
+    for(const [m,s] of Object.entries(p.snapshots)){if(/^\d{4}-\d{2}$/.test(m)&&s&&typeof s==='object'){const o={inv:{}};ACC.forEach(c=>{o[c.id]=num(s[c.id]);if(c.inv)o.inv[c.id]=num(s.inv&&s.inv[c.id])});pat.snaps[m]=o}}
+    const known=new Set(pat.goals.map(g=>g.id));
+    for(const g of p.goals||[]){if(g&&typeof g.id==='string'&&typeof g.name==='string'&&g.target>0&&!known.has(g.id))pat.goals.push({id:g.id,name:g.name,target:g.target})}
+    persistP();$('#inputs').dataset.m='';renderPat();msg('Patrimoine importé.');
+  }catch{msg('Fichier non reconnu : choisis un export du patrimoine.')}
+};
+function setView(v){
+  $('#v-budget').hidden=v!=='b';$('#v-pat').hidden=v!=='p';$('#budget-actions').hidden=v!=='b';
+  $('#t-b').setAttribute('aria-current',v==='b'?'page':'false');$('#t-p').setAttribute('aria-current',v==='p'?'page':'false');
+}
+$('#t-b').onclick=()=>setView('b');
+$('#t-p').onclick=()=>setView('p');
+render();
+</script>
+</body>
+</html>
