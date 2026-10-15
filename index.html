@@ -141,7 +141,8 @@ li .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       <div class="col">
         <section class="glass"><h2>Répartition</h2><div class="stack" id="stack"></div><div id="alist"></div></section>
         <section class="glass"><h2>Performance</h2><p class="hint">Valeur actuelle moins le total que tu as investi.</p><div id="perf"></div></section>
-        <section class="glass"><h2>Soldes de <span id="p-month"></span></h2><p class="hint">Une fois par mois : la valeur de chaque compte et, pour les placements, le total que tu y as versé depuis le début.</p><div class="inputs" id="inputs"></div><button class="btn btn-accent" id="p-save" style="margin-top:12px">Enregistrer</button></section>
+        <section class="glass"><h2>Soldes de <span id="p-month"></span></h2><p class="hint">Une fois par mois : la valeur de chaque compte et, pour les placements, le total que tu y as versé depuis le début.</p><div class="inputs" id="inputs"></div><button class="btn btn-accent" id="p-save" style="margin-top:12px">Enregistrer</button>
+          <label class="hint" style="display:block;margin:12px 0 0"><input type="checkbox" id="auto" checked> Télécharger la sauvegarde (.json) et le résumé du mois (.csv) à chaque enregistrement</label></section>
       </div>
     </div>
     <p id="pstatus" class="sub" role="status"></p>
@@ -312,13 +313,38 @@ function renderPat(){
 }
 $('#p-save').onclick=()=>{
   const snap={inv:{}};ACC.forEach(c=>{snap[c.id]=num($('#in-'+c.id).value);if(c.inv)snap.inv[c.id]=num($('#iv-'+c.id).value)});
-  pat.snaps[ym]=snap;persistP();$('#inputs').dataset.m='';renderPat();msg('Soldes enregistrés.');
+  pat.snaps[ym]=snap;persistP();$('#inputs').dataset.m='';renderPat();msg('Soldes enregistrés.');if($('#auto').checked)autoBackup();
 };
 $('#g-add').onclick=()=>{
   const name=$('#g-name').value.trim(),target=num($('#g-target').value);
   if(!name||target<=0){msg('Donne un nom et un montant supérieur à 0.');return}
   pat.goals.push({id:uid(),name,target});persistP();$('#g-name').value='';$('#g-target').value='';renderPat();msg('');
 };
+const AKEY='dashboard.auto';
+const pJson=()=>JSON.stringify({schemaVersion:1,kind:'patrimoine',snapshots:pat.snaps,goals:pat.goals},null,2);
+const cs=n=>(Math.round(n*100)/100).toFixed(2).replace('.',',');
+function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
+function summaryCsv(){
+  const s=snapAt(ym),rows=[['Mois','Catégorie','Élément','Valeur','Investi','Gain','Gain %']];
+  let tv=0,pv=0,pi=0,any=false;
+  for(const c of ACC){
+    const v=s?s[c.id]||0:0,i=c.inv&&s&&s.inv?s.inv[c.id]||0:0;tv+=v;
+    if(c.inv&&i>0){const g=v-i;pv+=v;pi+=i;any=true;rows.push([ym,'Patrimoine',c.name,cs(v),cs(i),cs(g),cs(g/i*100)])}
+    else rows.push([ym,'Patrimoine',c.name,cs(v),'','',''])
+  }
+  if(any)rows.push([ym,'Patrimoine','Placements (investi saisi)',cs(pv),cs(pi),cs(pv-pi),cs((pv-pi)/pi*100)]);
+  rows.push([ym,'Patrimoine','Total patrimoine',cs(tv),'','','']);
+  const {inc,exp}=totals(ym);
+  rows.push([ym,'Budget','Entrées',cs(inc),'','',''],[ym,'Budget','Dépensé',cs(exp),'','',''],[ym,'Budget','Il te reste',cs(inc-exp),'','','']);
+  return '\ufeff'+rows.map(r=>r.join(';')).join('\r\n');
+}
+function autoBackup(){
+  dl('patrimoine-'+ym+'.json',pJson(),'application/json');
+  setTimeout(()=>dl('resume-'+ym+'.csv',summaryCsv(),'text/csv;charset=utf-8'),600);
+  msg('Soldes enregistrés. Sauvegarde et résumé téléchargés.');
+}
+try{$('#auto').checked=localStorage.getItem(AKEY)!=='0'}catch{}
+$('#auto').onchange=()=>{try{localStorage.setItem(AKEY,$('#auto').checked?'1':'0')}catch{}};
 $('#p-export').onclick=()=>{
   const f=new File([JSON.stringify({schemaVersion:1,kind:'patrimoine',snapshots:pat.snaps,goals:pat.goals},null,2)],'patrimoine-'+ymOf(new Date())+'.json',{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);msg('Fichier téléchargé.');
