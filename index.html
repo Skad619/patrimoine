@@ -78,6 +78,15 @@ li .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .irow b{font-weight:500;font-size:14px}
 .two2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
 .arow{grid-template-columns:12px 1fr auto 70px}
+.buyform{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-items:end;margin-bottom:8px}
+.buyform label{font-size:12px;color:rgba(255,255,255,.45)}
+select.fld option{background:#111;color:#fff}
+#buys{max-height:300px}
+#buys li{grid-template-columns:78px 64px 1fr auto 28px;align-items:center}
+#buys small{display:block;color:rgba(255,255,255,.4);font-size:12px}
+#buys .x{color:rgba(255,255,255,.4);font-size:18px}
+#pos li{grid-template-columns:1.2fr 1fr 130px 1fr 1fr;align-items:center}
+#pos small{display:block;color:rgba(255,255,255,.4);font-size:12px}
 </style>
 </head>
 <body>
@@ -142,9 +151,26 @@ li .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         <section class="glass"><h2>Répartition</h2><div class="stack" id="stack"></div><div id="alist"></div></section>
         <section class="glass"><h2>Performance</h2><p class="hint">Valeur actuelle moins le total que tu as investi.</p><div id="perf"></div></section>
         <section class="glass"><h2>Soldes de <span id="p-month"></span></h2><p class="hint">Une fois par mois : la valeur de chaque compte et, pour les placements, le total que tu y as versé depuis le début.</p><div class="inputs" id="inputs"></div><button class="btn btn-accent" id="p-save" style="margin-top:12px">Enregistrer</button>
-          <label class="hint" style="display:block;margin:12px 0 0"><input type="checkbox" id="auto" checked> Télécharger la sauvegarde (.json) et le résumé du mois (.csv) à chaque enregistrement</label></section>
+          <label class="hint" style="display:block;margin:12px 0 0"><input type="checkbox" id="auto" checked> Télécharger la sauvegarde (.json) et le résumé du mois (.csv) à chaque enregistrement</label>
+          <div id="dlbar" class="pact" hidden><button class="btn" id="dl-json">Télécharger la sauvegarde (.json)</button><button class="btn" id="dl-csv">Télécharger le résumé (.csv)</button></div></section>
       </div>
     </div>
+    <section class="glass" style="margin-top:16px"><h2>Positions</h2><p class="hint">Ce que tu détiens de chaque actif (calculé depuis tes opérations). Indique le cours du jour pour obtenir la valeur et le gain.</p>
+      <button class="btn" id="px-refresh">Actualiser les cours (BTC, ETH…)</button>
+      <ul id="pos"></ul></section>
+    <section class="glass" style="margin-top:16px"><h2>Achats et ventes</h2><p class="hint">Note chaque opération (montant hors frais) : le « investi » de ce compte se calcule alors tout seul, mois par mois.</p>
+      <div class="buyform">
+        <label>Date<input class="fld" id="b-date" type="date"></label>
+        <label>Compte<select class="fld" id="b-acc"><option value="crypto">Crypto</option><option value="pea">PEA</option><option value="peg">PEG</option></select></label>
+        <label>Type<select class="fld" id="b-type"><option value="buy">Achat</option><option value="sell">Vente</option></select></label>
+        <label>Actif<input class="fld" id="b-asset" placeholder="BTC, ETF…" autocomplete="off"></label>
+        <label>Montant (€)<input class="fld num" id="b-amt" inputmode="decimal" placeholder="0"></label>
+        <label>Frais (€)<input class="fld num" id="b-fee" inputmode="decimal" placeholder="0"></label>
+        <label>Quantité<input class="fld num" id="b-qty" inputmode="decimal" placeholder="ex. 0,00080434"></label>
+        <label>Prix unitaire (€)<input class="fld num" id="b-price" inputmode="decimal" placeholder="si pas de quantité"></label>
+        <button class="btn btn-accent" id="b-add">Ajouter</button>
+      </div>
+      <ul id="buys"></ul></section>
     <p id="pstatus" class="sub" role="status"></p>
     <div class="pact"><button class="btn" id="p-export">Exporter</button><label class="btn" for="p-file">Importer</label><input id="p-file" type="file" accept="application/json,.json" hidden></div>
   </div>
@@ -254,12 +280,77 @@ const ACC=[{id:'epargne',name:'Épargne',c:'#00e5ff'},{id:'pea',name:'PEA',c:'#a
 const PKEY='dashboard.pat.v1';
 const uid=()=>crypto.randomUUID?crypto.randomUUID():'g-'+Date.now()+Math.random().toString(16).slice(2);
 const num=v=>{const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return Number.isFinite(n)&&n>=0?Math.round(n*100)/100:0};
-function loadP(){try{const d=JSON.parse(localStorage.getItem(PKEY));return d&&d.snaps?{snaps:d.snaps,goals:d.goals||[]}:{snaps:{},goals:[]}}catch{return{snaps:{},goals:[]}}}
+function loadP(){try{const d=JSON.parse(localStorage.getItem(PKEY));return d&&d.snaps?{snaps:d.snaps,goals:d.goals||[],buys:d.buys||[],prices:d.prices||{}}:{snaps:{},goals:[],buys:[],prices:{}}}catch{return{snaps:{},goals:[],buys:[],prices:{}}}}
 let pat=loadP();
 function persistP(){try{localStorage.setItem(PKEY,JSON.stringify(pat))}catch{msg('Enregistrement impossible : le stockage du navigateur est bloqué.')}}
 const sumS=s=>s?ACC.reduce((a,c)=>a+(s[c.id]||0),0):0;
 const snapAt=m=>{const k=Object.keys(pat.snaps).filter(x=>x<=m).sort().pop();return k?pat.snaps[k]:null};
 
+const hasBuys=id=>pat.buys.some(b=>b.acc===id);
+const invOf=(c,s,m)=>hasBuys(c.id)?Math.round(pat.buys.filter(b=>b.acc===c.id&&b.date.slice(0,7)<=m).reduce((a,b)=>a+(b.type==='sell'?-(b.amount-b.fees):b.amount+b.fees),0)*100)/100:(s&&s.inv?s.inv[c.id]||0:0);
+const todayS=()=>{const d=new Date();return ymOf(d)+'-'+pad(d.getDate())};
+function renderBuys(){
+  const ul=$('#buys');ul.replaceChildren();
+  const rows=[...pat.buys].sort((a,b)=>b.date.localeCompare(a.date));
+  if(!rows.length){ul.innerHTML='<li style="display:block;color:rgba(255,255,255,.4)">Aucune opération pour l\'instant.</li>';return}
+  for(const b of rows){
+    const li=document.createElement('li');
+    const d=document.createElement('span');d.className='d';d.textContent=new Date(b.date+'T00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'});
+    const ac=document.createElement('span');ac.textContent=(ACC.find(c=>c.id===b.acc)||{}).name||b.acc;
+    const mid=document.createElement('span');mid.className='n';
+    const det=[b.type==='sell'?'Vente':'Achat'];
+    const q=bq(b);if(q>0)det.push('quantité '+q.toLocaleString('fr-FR',{maximumFractionDigits:10})+', prix '+eur.format(b.amount/q));
+    if(b.fees>0)det.push('frais '+eur.format(b.fees));
+    mid.textContent=b.asset||'–';const sm=document.createElement('small');sm.textContent=det.join(', ');mid.append(sm);
+    const am=document.createElement('span');am.className='num '+(b.type==='sell'?'up':'');am.textContent=(b.type==='sell'?'+':'−')+eur.format(b.amount);
+    const x=document.createElement('button');x.className='x';x.textContent='×';x.setAttribute('aria-label','Supprimer l\'opération');
+    x.onclick=()=>{if(confirm('Supprimer cette opération ?')){pat.buys=pat.buys.filter(o=>o.id!==b.id);persistP();$('#inputs').dataset.m='';renderPat()}};
+    li.append(d,ac,mid,am,x);ul.append(li);
+  }
+}
+const numQ=v=>{const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return Number.isFinite(n)&&n>0?n:0};
+const bq=b=>b.qty>0?b.qty:(b.price>0?b.amount/b.price:0);
+function positions(){
+  const m=new Map();
+  for(const b of pat.buys){
+    const q=bq(b),name=(b.asset||'').trim().toUpperCase();if(!(q>0)||!name)continue;
+    const k=b.acc+'|'+name,o=m.get(k)||{acc:b.acc,asset:name,qty:0,inv:0},sell=b.type==='sell';
+    o.qty+=sell?-q:q;o.inv+=sell?-(b.amount-b.fees):b.amount+b.fees;m.set(k,o);
+  }
+  return [...m.values()].filter(o=>o.qty>1e-12);
+}
+function posValue(id){
+  const ps=positions().filter(o=>o.acc===id);
+  if(!ps.length||ps.some(o=>!(pat.prices[o.asset]>0)))return 0;
+  return Math.round(ps.reduce((a,o)=>a+o.qty*pat.prices[o.asset],0)*100)/100;
+}
+function renderPos(){
+  const ul=$('#pos');ul.replaceChildren();const ps=positions();
+  if(!ps.length){ul.innerHTML='<li style="display:block;color:rgba(255,255,255,.4)">Ajoute des achats avec un nom d\'actif et une quantité pour voir tes positions.</li>';return}
+  for(const o of ps){
+    const li=document.createElement('li'),px=pat.prices[o.asset]||0,val=px>0?o.qty*px:0;
+    const a=document.createElement('span');a.textContent=o.asset;const sm=document.createElement('small');sm.textContent=(ACC.find(c=>c.id===o.acc)||{}).name||o.acc;a.append(sm);
+    const q=document.createElement('span');q.className='num';q.textContent=o.qty.toLocaleString('fr-FR',{maximumFractionDigits:8});
+    const inp=document.createElement('input');inp.className='fld num';inp.inputMode='decimal';inp.placeholder='Cours en €';inp.setAttribute('aria-label','Cours de '+o.asset);inp.style.marginTop='0';inp.value=px?String(px).replace('.',','):'';
+    inp.onchange=()=>{pat.prices[o.asset]=numQ(inp.value);persistP();$('#inputs').dataset.m='';renderPat()};
+    const v=document.createElement('span');v.className='num';v.textContent=px>0?eur.format(val):'–';
+    const g=document.createElement('span');g.className='num';
+    if(px>0&&o.inv>0){const d=val-o.inv;g.className+=d>=0?' up':' down';g.textContent=(d>=0?'+':'−')+eur.format(Math.abs(d))}else g.textContent='–';
+    li.append(a,q,inp,v,g);ul.append(li);
+  }
+}
+const CG={BTC:'bitcoin',ETH:'ethereum',SOL:'solana',XRP:'ripple',ADA:'cardano',DOGE:'dogecoin',LTC:'litecoin',BNB:'binancecoin',DOT:'polkadot',AVAX:'avalanche-2',LINK:'chainlink',XMR:'monero'};
+async function fetchPrices(){
+  const ps=positions().filter(o=>CG[o.asset]);
+  if(!ps.length){msg('Aucun actif connu à actualiser (BTC, ETH, SOL…). Saisis le cours à la main.');return}
+  try{
+    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?vs_currencies=eur&ids='+[...new Set(ps.map(o=>CG[o.asset]))].join(','));
+    if(!r.ok)throw new Error('http');
+    const d=await r.json();
+    ps.forEach(o=>{const v=d[CG[o.asset]]&&d[CG[o.asset]].eur;if(v>0)pat.prices[o.asset]=v});
+    persistP();$('#inputs').dataset.m='';renderPat();msg('Cours actualisés.');
+  }catch{msg('Impossible de récupérer les cours : saisis-les à la main dans la colonne Cours.')}
+}
 function pChart(){
   const ms=Array.from({length:12},(_,i)=>shiftYm(ym,i-11));
   const v=ms.map(m=>sumS(snapAt(m)));
@@ -289,7 +380,7 @@ function renderPat(){
   $('#alist').innerHTML=ACC.map(c=>{const n=s?s[c.id]||0:0;return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}</span><span class="num">${eur0.format(n)}</span><small class="num">${tot>0?Math.round(n/tot*100):0} %</small></div>`}).join('');
   const box=$('#inputs');
   const fmt=n=>n?String(n).replace('.',','):'';
-  if(!box.dataset.m||box.dataset.m!==ym){box.dataset.m=ym;box.innerHTML=ACC.map(c=>`<div class="irow"><b>${c.name}</b><div class="two2"><label>Valeur<input class="fld num" id="in-${c.id}" inputmode="decimal" placeholder="0" value="${fmt(s&&s[c.id])}"></label>${c.inv?`<label>Investi<input class="fld num" id="iv-${c.id}" inputmode="decimal" placeholder="0" value="${fmt(s&&s.inv&&s.inv[c.id])}"></label>`:''}</div></div>`).join('')}
+  if(!box.dataset.m||box.dataset.m!==ym){box.dataset.m=ym;box.innerHTML=ACC.map(c=>{const pv=posValue(c.id);return `<div class="irow"><b>${c.name}</b><div class="two2"><label>Valeur<input class="fld num" id="in-${c.id}" inputmode="decimal" placeholder="0" value="${fmt(s&&s[c.id])}"></label>${c.inv?(hasBuys(c.id)?`<label>Investi (calculé)<input class="fld num" value="${fmt(invOf(c,s,ym))}" disabled></label>`:`<label>Investi<input class="fld num" id="iv-${c.id}" inputmode="decimal" placeholder="0" value="${fmt(s&&s.inv&&s.inv[c.id])}"></label>`):''}${pv>0?`<button class="btn" data-use="${c.id}" data-v="${pv}" style="grid-column:1/3">Utiliser la valeur calculée (${eur0.format(pv)})</button>`:''}</div></div>`}).join('');box.querySelectorAll('[data-use]').forEach(b=>{b.onclick=()=>{$('#in-'+b.dataset.use).value=String(b.dataset.v).replace('.',',')}})}
   const gl=$('#goals');gl.replaceChildren();
   if(!pat.goals.length){gl.innerHTML='<p class="hint" style="margin:8px 0 0">Aucun objectif pour l\'instant.</p>'}
   for(const g of pat.goals){
@@ -301,9 +392,10 @@ function renderPat(){
     const r=document.createElement('div');r.append(am,x);top.append(nm,r);top.style.display='flex';d.append(top,bar);gl.append(d);
   }
   pChart();
+  renderBuys();renderPos();
   let tg=0,ti=0,any=false;
   $('#perf').innerHTML=ACC.filter(c=>c.inv).map(c=>{
-    const v=s?s[c.id]||0:0,i=s&&s.inv?s.inv[c.id]||0:0;
+    const v=s?s[c.id]||0:0,i=invOf(c,s,ym);
     if(!(i>0))return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}</span><small style="grid-column:3/5">Investi non saisi</small></div>`;
     const g=v-i;tg+=g;ti+=i;any=true;const k=g>=0?'up':'down',sg=g>=0?'+':'−';
     return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}<small class="num" style="display:block;text-align:left">${eur0.format(v)} / ${eur0.format(i)}</small></span><span class="num ${k}">${sg}${eur0.format(Math.abs(g))}</span><small class="num ${k}">${sg}${Math.abs(g/i*100).toFixed(1).replace('.',',')} %</small></div>`}).join('');
@@ -312,7 +404,7 @@ function renderPat(){
   else{pg.textContent='–';pg.className='num'}
 }
 $('#p-save').onclick=()=>{
-  const snap={inv:{}};ACC.forEach(c=>{snap[c.id]=num($('#in-'+c.id).value);if(c.inv)snap.inv[c.id]=num($('#iv-'+c.id).value)});
+  const snap={inv:{}};ACC.forEach(c=>{snap[c.id]=num($('#in-'+c.id).value);if(c.inv){const el=$('#iv-'+c.id);snap.inv[c.id]=el?num(el.value):0}});
   pat.snaps[ym]=snap;persistP();$('#inputs').dataset.m='';renderPat();msg('Soldes enregistrés.');if($('#auto').checked)autoBackup();
 };
 $('#g-add').onclick=()=>{
@@ -321,14 +413,14 @@ $('#g-add').onclick=()=>{
   pat.goals.push({id:uid(),name,target});persistP();$('#g-name').value='';$('#g-target').value='';renderPat();msg('');
 };
 const AKEY='dashboard.auto';
-const pJson=()=>JSON.stringify({schemaVersion:1,kind:'patrimoine',snapshots:pat.snaps,goals:pat.goals},null,2);
+const pJson=()=>JSON.stringify({schemaVersion:1,kind:'patrimoine',snapshots:pat.snaps,goals:pat.goals,buys:pat.buys,prices:pat.prices},null,2);
 const cs=n=>(Math.round(n*100)/100).toFixed(2).replace('.',',');
-function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
+function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 function summaryCsv(){
   const s=snapAt(ym),rows=[['Mois','Catégorie','Élément','Valeur','Investi','Gain','Gain %']];
   let tv=0,pv=0,pi=0,any=false;
   for(const c of ACC){
-    const v=s?s[c.id]||0:0,i=c.inv&&s&&s.inv?s.inv[c.id]||0:0;tv+=v;
+    const v=s?s[c.id]||0:0,i=c.inv?invOf(c,s,ym):0;tv+=v;
     if(c.inv&&i>0){const g=v-i;pv+=v;pi+=i;any=true;rows.push([ym,'Patrimoine',c.name,cs(v),cs(i),cs(g),cs(g/i*100)])}
     else rows.push([ym,'Patrimoine',c.name,cs(v),'','',''])
   }
@@ -340,13 +432,26 @@ function summaryCsv(){
 }
 function autoBackup(){
   dl('patrimoine-'+ym+'.json',pJson(),'application/json');
-  setTimeout(()=>dl('resume-'+ym+'.csv',summaryCsv(),'text/csv;charset=utf-8'),600);
-  msg('Soldes enregistrés. Sauvegarde et résumé téléchargés.');
+  dl('resume-'+ym+'.csv',summaryCsv(),'text/csv;charset=utf-8');
+  $('#dlbar').hidden=false;
+  msg('Soldes enregistrés. Si rien ne se télécharge, utilise les deux boutons ci-dessous.');
 }
+$('#dl-json').onclick=()=>dl('patrimoine-'+ym+'.json',pJson(),'application/json');
+$('#dl-csv').onclick=()=>dl('resume-'+ym+'.csv',summaryCsv(),'text/csv;charset=utf-8');
 try{$('#auto').checked=localStorage.getItem(AKEY)!=='0'}catch{}
 $('#auto').onchange=()=>{try{localStorage.setItem(AKEY,$('#auto').checked?'1':'0')}catch{}};
+$('#b-date').value=todayS();
+$('#px-refresh').onclick=fetchPrices;
+$('#b-add').onclick=()=>{
+  const date=$('#b-date').value,amount=num($('#b-amt').value),pr=num($('#b-price').value),qq=numQ($('#b-qty').value),qty=qq>0?qq:(pr>0&&amount>0?amount/pr:0);
+  if(!date||amount<=0){msg('Choisis une date et un montant supérieur à 0.');return}
+  pat.buys.push({id:uid(),date,acc:$('#b-acc').value,type:$('#b-type').value,asset:$('#b-asset').value.trim(),amount,fees:num($('#b-fee').value),qty});
+  persistP();['#b-amt','#b-fee','#b-price','#b-qty','#b-asset'].forEach(k=>{$(k).value=''});
+  $('#inputs').dataset.m='';renderPat();msg('Opération ajoutée.');
+};
+const validBuy=b=>b&&typeof b.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(b.date)&&['pea','peg','crypto'].includes(b.acc)&&(b.type==='buy'||b.type==='sell')&&b.amount>0;
 $('#p-export').onclick=()=>{
-  const f=new File([JSON.stringify({schemaVersion:1,kind:'patrimoine',snapshots:pat.snaps,goals:pat.goals},null,2)],'patrimoine-'+ymOf(new Date())+'.json',{type:'application/json'});
+  const f=new File([JSON.stringify({schemaVersion:1,kind:'patrimoine',snapshots:pat.snaps,goals:pat.goals,buys:pat.buys,prices:pat.prices},null,2)],'patrimoine-'+ymOf(new Date())+'.json',{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);msg('Fichier téléchargé.');
 };
 $('#p-file').onchange=async e=>{
@@ -357,6 +462,9 @@ $('#p-file').onchange=async e=>{
     for(const [m,s] of Object.entries(p.snapshots)){if(/^\d{4}-\d{2}$/.test(m)&&s&&typeof s==='object'){const o={inv:{}};ACC.forEach(c=>{o[c.id]=num(s[c.id]);if(c.inv)o.inv[c.id]=num(s.inv&&s.inv[c.id])});pat.snaps[m]=o}}
     const known=new Set(pat.goals.map(g=>g.id));
     for(const g of p.goals||[]){if(g&&typeof g.id==='string'&&typeof g.name==='string'&&g.target>0&&!known.has(g.id))pat.goals.push({id:g.id,name:g.name,target:g.target})}
+    if(p.prices&&typeof p.prices==='object'){for(const [k,v] of Object.entries(p.prices)){if(numQ(v)>0)pat.prices[String(k).toUpperCase()]=numQ(v)}}
+    const kb=new Set(pat.buys.map(b=>b.id));
+    for(const b of p.buys||[]){if(validBuy(b)&&!kb.has(b.id))pat.buys.push({id:b.id,date:b.date,acc:b.acc,type:b.type,asset:String(b.asset||''),amount:num(b.amount),fees:num(b.fees),qty:numQ(b.qty),price:num(b.price)})}
     persistP();$('#inputs').dataset.m='';renderPat();msg('Patrimoine importé.');
   }catch{msg('Fichier non reconnu : choisis un export du patrimoine.')}
 };
