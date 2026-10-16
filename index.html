@@ -87,6 +87,9 @@ select.fld option{background:#111;color:#fff}
 #buys .x{color:rgba(255,255,255,.4);font-size:18px}
 #pos li{grid-template-columns:1.2fr 1fr 130px 1fr 1fr;align-items:center}
 #pos small{display:block;color:rgba(255,255,255,.4);font-size:12px}
+[hidden]{display:none!important}
+.goalform{grid-template-columns:1fr 110px auto auto}
+#buys li{grid-template-columns:78px 64px 1fr auto 28px 28px}
 </style>
 </head>
 <body>
@@ -145,7 +148,7 @@ select.fld option{background:#111;color:#fff}
       <div class="col">
         <section class="glass"><h2>Évolution sur 12 mois</h2><p class="hint">Total de tes comptes à la fin de chaque mois.</p><div id="p-chart"></div></section>
         <section class="glass"><h2>Objectifs</h2><p class="hint">La barre compare ton patrimoine total au montant visé.</p><div id="goals"></div>
-          <div class="goalform"><input class="fld" id="g-name" placeholder="Nom" aria-label="Nom de l'objectif"><input class="fld" id="g-target" inputmode="decimal" placeholder="Montant" aria-label="Montant visé"><button class="btn btn-accent" id="g-add">Ajouter</button></div></section>
+          <div class="goalform"><input class="fld" id="g-name" placeholder="Nom" aria-label="Nom de l'objectif"><input class="fld" id="g-target" inputmode="decimal" placeholder="Montant" aria-label="Montant visé"><button class="btn btn-accent" id="g-add">Ajouter</button><button class="btn" id="g-cancel" hidden>Annuler</button></div></section>
       </div>
       <div class="col">
         <section class="glass"><h2>Répartition</h2><div class="stack" id="stack"></div><div id="alist"></div></section>
@@ -169,6 +172,7 @@ select.fld option{background:#111;color:#fff}
         <label>Quantité<input class="fld num" id="b-qty" inputmode="decimal" placeholder="ex. 0,00080434"></label>
         <label>Prix unitaire (€)<input class="fld num" id="b-price" inputmode="decimal" placeholder="si pas de quantité"></label>
         <button class="btn btn-accent" id="b-add">Ajouter</button>
+        <button class="btn" id="b-cancel" hidden>Annuler</button>
       </div>
       <ul id="buys"></ul></section>
     <p id="pstatus" class="sub" role="status"></p>
@@ -305,7 +309,8 @@ function renderBuys(){
     const am=document.createElement('span');am.className='num '+(b.type==='sell'?'up':'');am.textContent=(b.type==='sell'?'+':'−')+eur.format(b.amount);
     const x=document.createElement('button');x.className='x';x.textContent='×';x.setAttribute('aria-label','Supprimer l\'opération');
     x.onclick=()=>{if(confirm('Supprimer cette opération ?')){pat.buys=pat.buys.filter(o=>o.id!==b.id);persistP();$('#inputs').dataset.m='';renderPat()}};
-    li.append(d,ac,mid,am,x);ul.append(li);
+    const ed=document.createElement('button');ed.className='x';ed.textContent='✎';ed.setAttribute('aria-label','Modifier l\'opération');ed.onclick=()=>startEditBuy(b);
+    li.append(d,ac,mid,am,ed,x);ul.append(li);
   }
 }
 const numQ=v=>{const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return Number.isFinite(n)&&n>0?n:0};
@@ -351,9 +356,27 @@ async function fetchPrices(){
     persistP();$('#inputs').dataset.m='';renderPat();msg('Cours actualisés.');
   }catch{msg('Impossible de récupérer les cours : saisis-les à la main dans la colonne Cours.')}
 }
+function curSnap(m){
+  const s=snapAt(m);
+  if(m<ymOf(new Date()))return s;
+  const o=Object.assign({},s||{});let any=false;
+  for(const c of ACC){if(!(o[c.id]>0)){const pv=posValue(c.id);if(pv>0){o[c.id]=pv;any=true}}}
+  return any?o:s;
+}
+let editBuy=null,editGoal=null;
+function resetBuyForm(){editBuy=null;$('#b-add').textContent='Ajouter';$('#b-cancel').hidden=true}
+function resetGoalForm(){editGoal=null;$('#g-add').textContent='Ajouter';$('#g-cancel').hidden=true;$('#g-name').value='';$('#g-target').value=''}
+function startEditBuy(b){
+  editBuy=b.id;
+  $('#b-date').value=b.date;$('#b-acc').value=b.acc;$('#b-type').value=b.type;$('#b-asset').value=b.asset||'';
+  $('#b-amt').value=String(b.amount).replace('.',',');$('#b-fee').value=b.fees?String(b.fees).replace('.',','):'';
+  const q=bq(b);$('#b-qty').value=q>0?q.toFixed(10).replace(/0+$/,'').replace(/\.$/,'').replace('.',','):'';$('#b-price').value='';
+  $('#b-add').textContent='Enregistrer la modification';$('#b-cancel').hidden=false;
+  $('#b-amt').scrollIntoView({behavior:'smooth',block:'center'});$('#b-amt').focus();
+}
 function pChart(){
   const ms=Array.from({length:12},(_,i)=>shiftYm(ym,i-11));
-  const v=ms.map(m=>sumS(snapAt(m)));
+  const v=ms.map(m=>sumS(curSnap(m)));
   const max=Math.max(100,...v),mag=Math.pow(10,Math.floor(Math.log10(max))),nice=Math.ceil(max/mag)*mag;
   const W=760,H=270,L=62,R=14,T=12,B=30,pw=W-L-R,ph=H-T-B,st=pw/11,y=n=>T+ph-n/nice*ph;
   let s=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution du patrimoine">`;
@@ -369,7 +392,7 @@ function pChart(){
 }
 
 function renderPat(){
-  const s=snapAt(ym),tot=sumS(s);
+  const s=curSnap(ym),tot=sumS(s);
   $('#p-total').textContent=eur0.format(tot);$('#p-total').className='num up';
   const pv=$('#p-var'),hasPrev=Object.keys(pat.snaps).some(k=>k<ym);
   if(hasPrev){const d=tot-sumS(snapAt(shiftYm(ym,-1))),pc=tot-d>0?d/(tot-d)*100:0;
@@ -389,7 +412,9 @@ function renderPat(){
     nm.textContent=g.name;am.className='num';am.textContent=eur0.format(g.target)+' · '+Math.floor(pc)+' %';x.textContent='×';x.setAttribute('aria-label','Supprimer l\'objectif');
     x.onclick=()=>{pat.goals=pat.goals.filter(o=>o.id!==g.id);persistP();renderPat()};
     const bar=document.createElement('div');bar.className='bar';bar.innerHTML=`<i style="width:${pc}%"></i>`;
-    const r=document.createElement('div');r.append(am,x);top.append(nm,r);top.style.display='flex';d.append(top,bar);gl.append(d);
+    const r=document.createElement('div');const e=document.createElement('button');e.textContent='✎';e.setAttribute('aria-label','Modifier l\'objectif');
+    e.onclick=()=>{editGoal=g.id;$('#g-name').value=g.name;$('#g-target').value=String(g.target).replace('.',',');$('#g-add').textContent='Enregistrer';$('#g-cancel').hidden=false;$('#g-name').focus()};
+    r.append(am,e,x);top.append(nm,r);top.style.display='flex';d.append(top,bar);gl.append(d);
   }
   pChart();
   renderBuys();renderPos();
@@ -410,14 +435,14 @@ $('#p-save').onclick=()=>{
 $('#g-add').onclick=()=>{
   const name=$('#g-name').value.trim(),target=num($('#g-target').value);
   if(!name||target<=0){msg('Donne un nom et un montant supérieur à 0.');return}
-  pat.goals.push({id:uid(),name,target});persistP();$('#g-name').value='';$('#g-target').value='';renderPat();msg('');
+  if(editGoal)pat.goals=pat.goals.map(o=>o.id===editGoal?{id:o.id,name,target}:o);else pat.goals.push({id:uid(),name,target});resetGoalForm();persistP();renderPat();msg('');
 };
 const AKEY='dashboard.auto';
 const pJson=()=>JSON.stringify({schemaVersion:1,kind:'patrimoine',snapshots:pat.snaps,goals:pat.goals,buys:pat.buys,prices:pat.prices},null,2);
 const cs=n=>(Math.round(n*100)/100).toFixed(2).replace('.',',');
 function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 function summaryCsv(){
-  const s=snapAt(ym),rows=[['Mois','Catégorie','Élément','Valeur','Investi','Gain','Gain %']];
+  const s=curSnap(ym),rows=[['Mois','Catégorie','Élément','Valeur','Investi','Gain','Gain %']];
   let tv=0,pv=0,pi=0,any=false;
   for(const c of ACC){
     const v=s?s[c.id]||0:0,i=c.inv?invOf(c,s,ym):0;tv+=v;
@@ -442,12 +467,16 @@ try{$('#auto').checked=localStorage.getItem(AKEY)!=='0'}catch{}
 $('#auto').onchange=()=>{try{localStorage.setItem(AKEY,$('#auto').checked?'1':'0')}catch{}};
 $('#b-date').value=todayS();
 $('#px-refresh').onclick=fetchPrices;
+$('#b-cancel').onclick=()=>{resetBuyForm();['#b-amt','#b-fee','#b-price','#b-qty','#b-asset'].forEach(k=>{$(k).value=''})};
+$('#g-cancel').onclick=resetGoalForm;
 $('#b-add').onclick=()=>{
   const date=$('#b-date').value,amount=num($('#b-amt').value),pr=num($('#b-price').value),qq=numQ($('#b-qty').value),qty=qq>0?qq:(pr>0&&amount>0?amount/pr:0);
   if(!date||amount<=0){msg('Choisis une date et un montant supérieur à 0.');return}
-  pat.buys.push({id:uid(),date,acc:$('#b-acc').value,type:$('#b-type').value,asset:$('#b-asset').value.trim(),amount,fees:num($('#b-fee').value),qty});
+  const was=editBuy,item={id:was||uid(),date,acc:$('#b-acc').value,type:$('#b-type').value,asset:$('#b-asset').value.trim(),amount,fees:num($('#b-fee').value),qty};
+  if(was)pat.buys=pat.buys.map(o=>o.id===was?item:o);else pat.buys.push(item);
+  resetBuyForm();
   persistP();['#b-amt','#b-fee','#b-price','#b-qty','#b-asset'].forEach(k=>{$(k).value=''});
-  $('#inputs').dataset.m='';renderPat();msg('Opération ajoutée.');
+  $('#inputs').dataset.m='';renderPat();msg(was?'Opération modifiée.':'Opération ajoutée.');
 };
 const validBuy=b=>b&&typeof b.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(b.date)&&['pea','peg','crypto'].includes(b.acc)&&(b.type==='buy'||b.type==='sell')&&b.amount>0;
 $('#p-export').onclick=()=>{
