@@ -153,7 +153,7 @@ select.fld option{background:#111;color:#fff}
       <div class="col">
         <section class="glass"><h2>Répartition</h2><div class="stack" id="stack"></div><div id="alist"></div></section>
         <section class="glass"><h2>Performance</h2><p class="hint">Valeur actuelle moins le total que tu as investi.</p><div id="perf"></div></section>
-        <section class="glass"><h2>Soldes de <span id="p-month"></span></h2><p class="hint">Une fois par mois : la valeur de chaque compte et, pour les placements, le total que tu y as versé depuis le début.</p><div class="inputs" id="inputs"></div><button class="btn btn-accent" id="p-save" style="margin-top:12px">Enregistrer</button>
+        <section class="glass"><h2>Soldes de <span id="p-month"></span></h2><p class="hint">Une fois par mois : la valeur de chaque compte et, pour les placements, le total que tu y as versé depuis le début. Tant que la valeur d'un placement n'est pas saisie, son gain n'est pas calculé.</p><div class="inputs" id="inputs"></div><button class="btn btn-accent" id="p-save" style="margin-top:12px">Enregistrer</button>
           <label class="hint" style="display:block;margin:12px 0 0"><input type="checkbox" id="auto" checked> Télécharger la sauvegarde (.json) et le résumé du mois (.csv) à chaque enregistrement</label>
           <div id="dlbar" class="pact" hidden><button class="btn" id="dl-json">Télécharger la sauvegarde (.json)</button><button class="btn" id="dl-csv">Télécharger le résumé (.csv)</button></div></section>
       </div>
@@ -161,11 +161,11 @@ select.fld option{background:#111;color:#fff}
     <section class="glass" style="margin-top:16px"><h2>Positions</h2><p class="hint">Ce que tu détiens de chaque actif (calculé depuis tes opérations). Indique le cours du jour pour obtenir la valeur et le gain.</p>
       <button class="btn" id="px-refresh">Actualiser les cours (BTC, ETH…)</button>
       <ul id="pos"></ul></section>
-    <section class="glass" style="margin-top:16px"><h2>Achats et ventes</h2><p class="hint">Note chaque opération (montant hors frais) : le « investi » de ce compte se calcule alors tout seul, mois par mois.</p>
+    <section class="glass" style="margin-top:16px"><h2>Achats et ventes</h2><p class="hint">Note chaque opération (montant hors frais) : le « investi » de ce compte se calcule alors tout seul, mois par mois. <b>PEG</b> : ce que tu verses toi-même = « Achat ou versement », la part de l'employeur = « Abondement » (elle compte dans ton gain, pas dans ce que tu as investi). <b>PEA</b> : pour un ETF, Actif = son code (ex. DCAM), Quantité = nombre de parts, Montant = parts × prix, Frais = courtage.</p>
       <div class="buyform">
         <label>Date<input class="fld" id="b-date" type="date"></label>
         <label>Compte<select class="fld" id="b-acc"><option value="crypto">Crypto</option><option value="pea">PEA</option><option value="peg">PEG</option></select></label>
-        <label>Type<select class="fld" id="b-type"><option value="buy">Achat</option><option value="sell">Vente</option></select></label>
+        <label>Type<select class="fld" id="b-type"><option value="buy">Achat ou versement</option><option value="sell">Vente ou retrait</option><option value="match">Abondement (employeur)</option></select></label>
         <label>Actif<input class="fld" id="b-asset" placeholder="BTC, ETF…" autocomplete="off"></label>
         <label>Montant (€)<input class="fld num" id="b-amt" inputmode="decimal" placeholder="0"></label>
         <label>Frais (€)<input class="fld num" id="b-fee" inputmode="decimal" placeholder="0"></label>
@@ -291,7 +291,7 @@ const sumS=s=>s?ACC.reduce((a,c)=>a+(s[c.id]||0),0):0;
 const snapAt=m=>{const k=Object.keys(pat.snaps).filter(x=>x<=m).sort().pop();return k?pat.snaps[k]:null};
 
 const hasBuys=id=>pat.buys.some(b=>b.acc===id);
-const invOf=(c,s,m)=>hasBuys(c.id)?Math.round(pat.buys.filter(b=>b.acc===c.id&&b.date.slice(0,7)<=m).reduce((a,b)=>a+(b.type==='sell'?-(b.amount-b.fees):b.amount+b.fees),0)*100)/100:(s&&s.inv?s.inv[c.id]||0:0);
+const invOf=(c,s,m)=>hasBuys(c.id)?Math.round(pat.buys.filter(b=>b.acc===c.id&&b.date.slice(0,7)<=m).reduce((a,b)=>a+(b.type==='sell'?-(b.amount-b.fees):b.type==='match'?0:b.amount+b.fees),0)*100)/100:(s&&s.inv?s.inv[c.id]||0:0);
 const todayS=()=>{const d=new Date();return ymOf(d)+'-'+pad(d.getDate())};
 function renderBuys(){
   const ul=$('#buys');ul.replaceChildren();
@@ -302,11 +302,11 @@ function renderBuys(){
     const d=document.createElement('span');d.className='d';d.textContent=new Date(b.date+'T00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'});
     const ac=document.createElement('span');ac.textContent=(ACC.find(c=>c.id===b.acc)||{}).name||b.acc;
     const mid=document.createElement('span');mid.className='n';
-    const det=[b.type==='sell'?'Vente':'Achat'];
+    const det=[b.type==='sell'?'Vente ou retrait':b.type==='match'?'Abondement':'Achat ou versement'];
     const q=bq(b);if(q>0)det.push('quantité '+q.toLocaleString('fr-FR',{maximumFractionDigits:10})+', prix '+eur.format(b.amount/q));
     if(b.fees>0)det.push('frais '+eur.format(b.fees));
     mid.textContent=b.asset||'–';const sm=document.createElement('small');sm.textContent=det.join(', ');mid.append(sm);
-    const am=document.createElement('span');am.className='num '+(b.type==='sell'?'up':'');am.textContent=(b.type==='sell'?'+':'−')+eur.format(b.amount);
+    const am=document.createElement('span');am.className='num '+(b.type!=='buy'?'up':'');am.textContent=(b.type!=='buy'?'+':'−')+eur.format(b.amount);
     const x=document.createElement('button');x.className='x';x.textContent='×';x.setAttribute('aria-label','Supprimer l\'opération');
     x.onclick=()=>{if(confirm('Supprimer cette opération ?')){pat.buys=pat.buys.filter(o=>o.id!==b.id);persistP();$('#inputs').dataset.m='';renderPat()}};
     const ed=document.createElement('button');ed.className='x';ed.textContent='✎';ed.setAttribute('aria-label','Modifier l\'opération');ed.onclick=()=>startEditBuy(b);
@@ -320,7 +320,7 @@ function positions(){
   for(const b of pat.buys){
     const q=bq(b),name=(b.asset||'').trim().toUpperCase();if(!(q>0)||!name)continue;
     const k=b.acc+'|'+name,o=m.get(k)||{acc:b.acc,asset:name,qty:0,inv:0},sell=b.type==='sell';
-    o.qty+=sell?-q:q;o.inv+=sell?-(b.amount-b.fees):b.amount+b.fees;m.set(k,o);
+    o.qty+=sell?-q:q;o.inv+=sell?-(b.amount-b.fees):b.type==='match'?0:b.amount+b.fees;m.set(k,o);
   }
   return [...m.values()].filter(o=>o.qty>1e-12);
 }
@@ -356,6 +356,7 @@ async function fetchPrices(){
     persistP();$('#inputs').dataset.m='';renderPat();msg('Cours actualisés.');
   }catch{msg('Impossible de récupérer les cours : saisis-les à la main dans la colonne Cours.')}
 }
+const matchOf=(id,m)=>pat.buys.filter(b=>b.acc===id&&b.type==='match'&&b.date.slice(0,7)<=m).reduce((a,b)=>a+b.amount,0);
 function curSnap(m){
   const s=snapAt(m);
   if(m<ymOf(new Date()))return s;
@@ -420,10 +421,11 @@ function renderPat(){
   renderBuys();renderPos();
   let tg=0,ti=0,any=false;
   $('#perf').innerHTML=ACC.filter(c=>c.inv).map(c=>{
-    const v=s?s[c.id]||0:0,i=invOf(c,s,ym);
+    const v=s?s[c.id]||0:0,i=invOf(c,s,ym),mt=matchOf(c.id,ym);
     if(!(i>0))return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}</span><small style="grid-column:3/5">Investi non saisi</small></div>`;
+    if(!(v>0))return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}<small class="num" style="display:block;text-align:left">Investi ${eur0.format(i)}</small></span><small style="grid-column:3/5">Valeur à saisir</small></div>`;
     const g=v-i;tg+=g;ti+=i;any=true;const k=g>=0?'up':'down',sg=g>=0?'+':'−';
-    return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}<small class="num" style="display:block;text-align:left">${eur0.format(v)} / ${eur0.format(i)}</small></span><span class="num ${k}">${sg}${eur0.format(Math.abs(g))}</span><small class="num ${k}">${sg}${Math.abs(g/i*100).toFixed(1).replace('.',',')} %</small></div>`}).join('');
+    return `<div class="arow"><i style="background:${c.c}"></i><span>${c.name}<small class="num" style="display:block;text-align:left">${eur0.format(v)} / ${eur0.format(i)}${mt>0?', dont abondement '+eur0.format(mt):''}</small></span><span class="num ${k}">${sg}${eur0.format(Math.abs(g))}</span><small class="num ${k}">${sg}${Math.abs(g/i*100).toFixed(1).replace('.',',')} %</small></div>`}).join('');
   const pg=$('#p-gain');
   if(any){const k=tg>=0?'up':'down',sg=tg>=0?'+':'−';pg.textContent=sg+eur0.format(Math.abs(tg))+' ('+sg+Math.abs(tg/ti*100).toFixed(1).replace('.',',')+' %)';pg.className='num '+k}
   else{pg.textContent='–';pg.className='num'}
@@ -478,7 +480,7 @@ $('#b-add').onclick=()=>{
   persistP();['#b-amt','#b-fee','#b-price','#b-qty','#b-asset'].forEach(k=>{$(k).value=''});
   $('#inputs').dataset.m='';renderPat();msg(was?'Opération modifiée.':'Opération ajoutée.');
 };
-const validBuy=b=>b&&typeof b.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(b.date)&&['pea','peg','crypto'].includes(b.acc)&&(b.type==='buy'||b.type==='sell')&&b.amount>0;
+const validBuy=b=>b&&typeof b.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(b.date)&&['pea','peg','crypto'].includes(b.acc)&&(b.type==='buy'||b.type==='sell'||b.type==='match')&&b.amount>0;
 $('#p-export').onclick=()=>{
   const f=new File([JSON.stringify({schemaVersion:1,kind:'patrimoine',snapshots:pat.snaps,goals:pat.goals,buys:pat.buys,prices:pat.prices},null,2)],'patrimoine-'+ymOf(new Date())+'.json',{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);msg('Fichier téléchargé.');
